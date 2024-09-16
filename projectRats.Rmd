@@ -1,0 +1,733 @@
+---
+title: "SDS II Final Project"
+author: "Caterina Alfano 1746299"
+date: "31/7/2020"
+output: html_document
+---
+<style type="text/css">
+
+h1.title {
+  font-size: 38px;
+  text-align: center;
+}
+h4.author { 
+  font-size: 18px;
+  color: black;
+  text-align: center;
+}
+h4.date { 
+  font-size: 18px;
+  color: black;
+  text-align: center;
+}
+</style>
+
+# Illustration of the dataset
+
+### Drugs found in rat's liver
+This dataset is available through R, in the package "isdals". It comes from the book Applied Linear Regression of S. Weisberg (1985). 
+It is made up o 19 rows (rats) and four columns giving information about the rat's weight, the rat's liver weight, the dose of drug given to the rat and, finally, the amount of drug found in the liver of the rat.
+
+```{r echo=FALSE, message=FALSE, include=FALSE} 
+library(isdals)
+data(ratliver)
+rats <- ratliver
+library(knitr)
+library(kableExtra)
+library(fitdistrplus)
+
+library("rjags")
+library("R2jags")
+library("boa")
+library("coda")
+library("R2WinBUGS")
+
+library(ggmcmc)
+
+```
+
+
+```{r echo=FALSE, message=FALSE, fig.align="center"} 
+
+kable(rats) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F,position = "center")%>%
+ scroll_box(width = "300px", height = "300px")%>%
+  kable_styling(position = "center")
+
+```
+
+
+
+
+#### Let's see these values in a better form
+```{r echo=FALSE, message=FALSE, fig.align="center"}
+to_plot <- rbind(rats[,"DoseInLiver"],rats[,"Dose"])
+barplot(to_plot, beside=T, density=c(50,50), angle=c(45,36), col=c("gold1", "darkolivegreen3"), border = T,  main = "Drug concentration in rats' livers",  ylim = c(0, 1.5), space = c(0.1 , 0.5))
+
+#, density=c(25,25), angle=c(45,36), col=c("yellow", "green"), border = T , main = #"Drug concentration in rats' livers", ylim = c(0, 2), space = 0.4)
+
+legend("topright", 
+       legend = c("Dose in liver", "Dose"), 
+       fill = c("gold1", "darkolivegreen3"), density=c(50,50), angle=c(45,36),bty = "n")
+```
+```{r  echo=FALSE, message=FALSE, fig.align="center"}
+
+w <- rats[,"BodyWt"]
+lw <- rats[,"LiverWt"]
+
+par(mfrow=c(1,2)) 
+hist(w, density=c(50,50), angle=c(45,36), col="pink", border = T , main = "Rats' Weight", ylim=c(0,5), xlab = "Weight (g)")
+
+hist(lw, density=c(50,50), angle=c(45,36), col="sienna1", border = T , main = "Rats' livers' weight", ylim=c(0,10), xlab = "Liver weight (g)")
+
+```
+
+#### How can we approximate the dose of drug found in the liver?
+#### The normal distribution seems to fit
+
+
+```{r echo=FALSE, message=FALSE, fig.align="center"}
+dl <- rats[,"DoseInLiver"]
+fit.norm <- fitdist(dl, "norm")
+#?fitdist
+plot(fit.norm, pch=19,col ="turquoise", )
+```
+
+
+
+# Models {.tabset}
+## Model 1
+```{r engine='bash', comment='', echo=FALSE}
+cat rmodel1.txt
+```
+
+#### Running the model
+
+```{r message=FALSE, warning=FALSE, results="hide", error=FALSE}
+djags <-list("N" = 19, "dil" = rats[,"DoseInLiver"])
+
+params <- c("mu", "sigma")
+
+rmfile <- "/Users/caterina/Documents/DataScience/SDS II/Project/rmodel1.txt"
+set.seed(222)
+provaR <- jags(data = djags,           
+               model.file = rmfile, 
+               parameters.to.save = params,                  
+               n.chains = 3, n.iter = 10000, n.burnin = 1000, n.thin=10)   
+
+  
+```
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE }
+options(width = 900)
+provaR
+```
+
+## Model 2
+
+```{r engine='bash', comment='', echo=FALSE}
+cat Modello2.txt
+```
+
+
+#### Running the model
+
+```{r message=FALSE, warning=FALSE, results="hide"}
+djags <-list("N" = 19, "dil" = rats[,"DoseInLiver"], dose=rats[,"Dose"], w=rats[,"BodyWt"], lw=rats[,"LiverWt"] )
+
+params <- c("mu", "sigma")
+
+rmfile2NEW <- "/Users/caterina/Documents/DataScience/SDS II/Project/Modello2.txt"
+set.seed(111)
+provaR2N <- jags(data = djags,           
+                model.file = rmfile2NEW,
+                parameters.to.save = params,                  
+                n.chains = 3, n.iter = 10000, n.burnin = 1000, n.thin=5)   
+```
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE }
+options(width = 900)
+provaR2N
+```
+
+
+## Model 3
+```{r engine='bash', comment='', echo=FALSE}
+cat rBOZZA.txt
+```
+
+#### Running the model
+
+```{r message=FALSE, warning=FALSE, results="hide"}
+suppressPackageStartupMessages(library(tidyverse))
+djags <-list("N" = 19, "dil" = rats[,"DoseInLiver"], "dose"=rats[,"Dose"], w=rats[,"BodyWt"])
+
+params <- c("mu", "sigma")
+
+rmfileB <- "/Users/caterina/Documents/DataScience/SDS II/Project/rBOZZA.txt"
+set.seed(111)
+provaRB <- jags(data = djags,               
+                model.file = rmfileB,       
+                parameters.to.save = params,                  
+                n.chains = 3, n.iter = 10000, 
+                n.burnin = 1000, n.thin=5) 
+```
+
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE }
+options(width = 900)
+provaRB
+```
+
+
+# Results Model 1 {.tabset}
+
+## Findings 
+
+#### Point Estimate
+```{r echo = FALSE}
+
+mat1 <- provaR$BUGSoutput$sims.matrix
+means1 <- data.frame(colMeans(mat1))
+means1 <- cbind(Row.Names = rownames(means1), means1)
+rownames(means1) <- NULL
+colnames(means1) <- c("Parameter","Estimate")
+
+kable(means1, col.names = c("Parameter","Estimate")) %>%
+  kable_styling(bootstrap_options = "striped", full_width = T,position = "left", latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "160px")%>%
+  kable_styling(position = "left")
+```
+
+#### Credible Intervals
+
+```{r echo=FALSE}
+c <- 0.95
+ci1 <- apply(mat1, 2, quantile, prob=c((1-c)/2, 1-(1-c)/2))
+ci_df1=data.frame(ci1)
+
+
+kable(ci_df1) %>%
+  kable_styling(bootstrap_options = "striped",position = "center", latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "110px")%>%
+  kable_styling(position = "center")
+
+```
+
+#### HPD 
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+
+HPD1 <- coda::HPDinterval(as.mcmc(mat1))
+HPD1 <- data.frame(HPD1)
+HPD1 <- cbind(Row.Names = rownames(HPD1), HPD1)
+rownames(HPD1) <- NULL
+colnames(HPD1) <- c("Parameter","Lower", "Upper")
+
+
+kable(HPD1) %>%
+  kable_styling(bootstrap_options = "striped", position = "left", full_width = T, latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "160px")%>%
+  kable_styling(position = "left")
+```
+
+
+## Density Plots
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, include=FALSE}
+jags1.mcmc <- as.mcmc(provaR)
+#to_plot1 <- ggs(jags1.mcmc)
+#to_plot
+
+#ggmcmc(to_plot1,  plot= c("density", "traceplot", "running", 'autocorrelation'), file="model1.pdf", param_page=3)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+knitr::include_graphics("./Plots/1/M1density1.png")
+```
+
+## Trace Plots 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+knitr::include_graphics("./Plots/1/M1traceplot1.png")
+```
+
+## Running Means
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+knitr::include_graphics("./Plots/1/M1running1.png")
+```
+
+
+## Autocorrelation
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+knitr::include_graphics("./Plots/1/M1auto1.png")
+```
+
+
+## MCSE & Heidel 
+
+#### Monte Carlo Standard Error
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+#?LaplacesDemon::MCSE
+errors1 <- c(LaplacesDemon::MCSE(provaR$BUGSoutput$sims.array[,1,"sigma"]),
+             LaplacesDemon::MCSE(provaR$BUGSoutput$sims.array[,1,"mu"]))
+
+rows1 <- c("sigma", "mu")
+
+e.df1 <- data.frame(errors1)
+rownames(e.df1) <- rows1
+#e.df
+
+kable(e.df1, col.names = c("MCSE")) %>%
+  kable_styling(bootstrap_options = "striped", position = "left", full_width = T, latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "120px")%>%
+  kable_styling(position = "left")
+
+```
+
+#### Heidel Test on chain 1
+```{r  echo = FALSE, message=FALSE, warning=FALSE}
+
+options(width = 1400)
+#?heidel.diag
+heidel.diag(jags1.mcmc[[1]])
+
+```
+
+## Geweke
+
+#### Just on chain 3 as an example
+```{r echo = FALSE, message=FALSE, warning=FALSE, fig.align="center"}
+
+#geweke.diag(jags.mcmc)
+par(mar=c(2,4,2,4))
+geweke.plot(jags1.mcmc[[3]])
+
+```
+
+
+## Gelman
+```{r echo = FALSE, message=FALSE, warning=FALSE, fig.align="center"}
+par(mar=c(2,4,2,4))
+gelman.plot(jags1.mcmc)
+```
+
+# Results Model 2 {.tabset}
+
+## Findings 
+
+#### Point Estimate
+```{r echo = FALSE}
+
+mat2 <- provaR2N$BUGSoutput$sims.matrix
+means2 <- data.frame(colMeans(mat2))
+means2 <- cbind(Row.Names = rownames(means2), means2)
+rownames(means2) <- NULL
+colnames(means2) <- c("Parameter","Estimate")
+
+kable(means2, col.names = c("Parameter","Estimate")) %>%
+  kable_styling(bootstrap_options = "striped", full_width = T,position = "left", latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "300px")%>%
+  kable_styling(position = "left")
+```
+
+#### Credible Intervals
+
+```{r echo=FALSE}
+c <- 0.95
+ci2 <- apply(mat2, 2, quantile, prob=c((1-c)/2, 1-(1-c)/2))
+ci_df2=data.frame(ci2)
+
+
+kable(ci_df2) %>%
+  kable_styling(bootstrap_options = "striped",position = "center", latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "110px")%>%
+  kable_styling(position = "center")
+
+```
+
+#### HPD 
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+
+HPD2 <- coda::HPDinterval(as.mcmc(mat2))
+HPD2 <- data.frame(HPD2)
+HPD2 <- cbind(Row.Names = rownames(HPD2), HPD2)
+rownames(HPD2) <- NULL
+colnames(HPD2) <- c("Parameter","Lower", "Upper")
+
+
+kable(HPD2) %>%
+  kable_styling(bootstrap_options = "striped", position = "left", full_width = T, latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "350px")%>%
+  kable_styling(position = "left")
+```
+
+
+## Density Plots
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, include=FALSE}
+jags2.mcmc <- as.mcmc(provaR2N)
+to_plot2 <- ggs(jags2.mcmc)
+#to_plot
+
+#ggmcmc(to_plot2,  plot= c("density", "traceplot", "running", 'autocorrelation'), file="model2.pdf", param_page=7)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+knitr::include_graphics("./Plots/2/M2density1.png")
+knitr::include_graphics("./Plots/2/M2density2.png")
+knitr::include_graphics("./Plots/2/M2density3.png")
+```
+
+## Trace Plots 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+knitr::include_graphics("./Plots/2/M2traceplot1.png")
+knitr::include_graphics("./Plots/2/M2traceplot2.png")
+knitr::include_graphics("./Plots/2/M2traceplot3.png")
+```
+
+## Running Means
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+knitr::include_graphics("./Plots/2/M2running1.png")
+knitr::include_graphics("./Plots/2/M2running2.png")
+knitr::include_graphics("./Plots/2/M2running3.png")
+```
+
+
+## Autocorrelation
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+knitr::include_graphics("./Plots/2/M2auto1.png")
+knitr::include_graphics("./Plots/2/M2auto2.png")
+knitr::include_graphics("./Plots/2/M2auto3.png")
+```
+
+
+## MCSE & Heidel 
+
+#### Monte Carlo Standard Error
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+#?LaplacesDemon::MCSE
+errors2 <- c(LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"sigma"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[1]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[2]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[3]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[4]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[5]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[6]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[7]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[8]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[9]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[10]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[11]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[12]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[13]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[14]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[15]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[16]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[17]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[18]"]),
+             LaplacesDemon::MCSE(provaR2N$BUGSoutput$sims.array[,1,"mu[19]"])
+)
+
+rows <- c("sigma", "mu[1]", "mu[2]","mu[3]","mu[4]","mu[5]","mu[6]","mu[7]",
+          "mu[8]","mu[9]","mu[10]","mu[11]","mu[12]","mu[13]","mu[14]","mu[15]",             "mu[16]", "mu[17]","mu[18]","mu[19]")
+
+e.df2 <- data.frame(errors2)
+rownames(e.df2) <- rows
+#e.df
+
+kable(e.df2, col.names = c("MCSE")) %>%
+  kable_styling(bootstrap_options = "striped", position = "left", full_width = T, latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "350px")%>%
+  kable_styling(position = "left")
+
+```
+
+#### Heidel Test on chain 2
+```{r  echo = FALSE, message=FALSE, warning=FALSE}
+
+options(width = 1200)
+#?heidel.diag
+heidel.diag(jags2.mcmc[[2]])
+
+```
+
+## Geweke
+
+#### Just on chain 1 as an example
+```{r echo = FALSE, message=FALSE, warning=FALSE, fig.align="center"}
+
+#geweke.diag(jags.mcmc)
+par(mar=c(2,4,2,4))
+geweke.plot(jags2.mcmc[[1]])
+
+```
+
+
+## Gelman
+```{r echo = FALSE, message=FALSE, warning=FALSE, fig.align="center"}
+par(mar=c(2,4,2,4))
+gelman.plot(jags2.mcmc)
+```
+
+# Results Model 3 {.tabset}
+
+## Findings 
+
+#### Point Estimate
+```{r echo = FALSE}
+
+mat <- provaRB$BUGSoutput$sims.matrix
+means <- data.frame(colMeans(mat))
+means <- cbind(Row.Names = rownames(means), means)
+rownames(means) <- NULL
+colnames(means) <- c("Parameter","Estimate")
+
+kable(means, col.names = c("Parameter","Estimate")) %>%
+  kable_styling(bootstrap_options = "striped", full_width = T,position = "left", latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "300px")%>%
+  kable_styling(position = "left")
+```
+#### Credible Intervals
+
+```{r echo=FALSE}
+c <- 0.95
+ci <- apply(mat, 2, quantile, prob=c((1-c)/2, 1-(1-c)/2))
+ci_df=data.frame(ci)
+
+
+kable(ci_df) %>%
+  kable_styling(bootstrap_options = "striped",position = "center", latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "110px")%>%
+  kable_styling(position = "center")
+
+```
+
+#### HPD 
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+
+HPD <- coda::HPDinterval(as.mcmc(mat))
+HPD <- data.frame(HPD)
+HPD <- cbind(Row.Names = rownames(HPD), HPD)
+rownames(HPD) <- NULL
+colnames(HPD) <- c("Parameter","Lower", "Upper")
+#HPD
+
+kable(HPD) %>%
+  kable_styling(bootstrap_options = "striped", position = "left", full_width = T, latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "350px")%>%
+  kable_styling(position = "left")
+```
+
+
+## Density Plots
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, include=FALSE}
+jags.mcmc <- as.mcmc(provaRB)
+#to_plot <- ggs(jags.mcmc)
+#to_plot
+
+#ggmcmc(to_plot,  plot= c("density", "traceplot", "running", 'autocorrelation'), file="model3.pdf", param_page=7)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+knitr::include_graphics("./Plots/3/M3density1.png")
+knitr::include_graphics("./Plots/3/M3density2.png")
+knitr::include_graphics("./Plots/3/M3density3.png")
+```
+
+## Trace Plots 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+knitr::include_graphics("./Plots/3/M3traceplot1.png")
+knitr::include_graphics("./Plots/3/M3traceplot2.png")
+knitr::include_graphics("./Plots/3/M3traceplot3.png")
+```
+
+## Running Means
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+knitr::include_graphics("./Plots/3/M3running1.png")
+knitr::include_graphics("./Plots/3/M3running2.png")
+knitr::include_graphics("./Plots/3/M3running3.png")
+```
+
+
+## Autocorrelation
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+knitr::include_graphics("./Plots/3/M3auto1.png")
+knitr::include_graphics("./Plots/3/M3auto2.png")
+knitr::include_graphics("./Plots/3/M3auto3.png")
+```
+
+
+## MCSE & Heidel 
+
+#### Monte Carlo Standard Error
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+#?LaplacesDemon::MCSE
+errors <- c( LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"sigma"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[1]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[2]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[3]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[4]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[5]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[6]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[7]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[8]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[9]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[10]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[11]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[12]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[13]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[14]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[15]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[16]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[17]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[18]"]),
+             LaplacesDemon::MCSE(provaRB$BUGSoutput$sims.array[,1,"mu[19]"])
+)
+
+rows <- c("sigma", "mu[1]", "mu[2]","mu[3]","mu[4]","mu[5]","mu[6]","mu[7]",
+          "mu[8]","mu[9]","mu[10]","mu[11]","mu[12]","mu[13]","mu[14]","mu[15]",             "mu[16]", "mu[17]","mu[18]","mu[19]")
+
+e.df <- data.frame(errors)
+rownames(e.df) <- rows
+#e.df
+
+kable(e.df, col.names = c("MCSE")) %>%
+  kable_styling(bootstrap_options = "striped", position = "left", full_width = T, latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "350px")%>%
+  kable_styling(position = "left")
+
+```
+
+#### Heidel Test on 3
+```{r  echo = FALSE, message=FALSE, warning=FALSE}
+
+options(width = 1200)
+#?heidel.diag
+heidel.diag(jags.mcmc[[3]])
+
+```
+
+## Geweke
+
+#### Just on chain 2 as an example
+```{r echo = FALSE, message=FALSE, warning=FALSE, fig.align="center"}
+
+#geweke.diag(jags.mcmc)
+par(mar=c(2,4,2,4))
+geweke.plot(jags.mcmc[[2]])
+
+```
+
+
+## Gelman
+```{r echo = FALSE, message=FALSE, warning=FALSE, fig.align="center"}
+par(mar=c(2,4,2,4))
+gelman.plot(jags.mcmc)
+```
+
+
+# Trying the model with data simulated from the model
+
+#### Simulating the data
+```{r message=FALSE, warning=FALSE}
+set.seed(123)
+obs <- 50
+
+lw <- round(runif(obs, 5,10),1)
+w <- round(rnorm(obs,174, 6))
+d <- round(runif(obs,0.73,1),2)
+
+# Pick fixed values for the parameters of the model
+beta.dose <- 0.001
+beta.w<- 0.002
+sigma <- 0.1
+
+# Simulate response according to the model
+dil <- c(); mu <- c()
+for (i in 1:obs){
+  m <- beta.dose*d[i] + beta.w*w[i] 
+  mu <- append(mu, m)
+  inLiv <- round(rnorm(1,m, sigma),2)
+  dil <- append(dil,abs(inLiv) )
+}
+
+dat <- data.frame(Bodyw=w, Liverw=lw, Dose=d, InLiver=dil)
+rownames(dat) <- NULL
+```
+
+
+```{r echo=FALSE}
+kable(dat) %>%
+  kable_styling(bootstrap_options = "striped", full_width = T,position = "center")%>%
+ scroll_box(width = "300px", height = "300px")%>%
+  kable_styling(position = "center")
+```
+
+
+#### Applying the model
+```{r results="hide", message=FALSE, warning=FALSE}
+
+sim_jags <-list("N" = obs, "dil" = dat[,"InLiver"], "dose"=dat[,"Dose"], "w"=dat[,"Bodyw"])
+paramSIM <- c( "sigma","mu")
+rmfileB <- "/Users/caterina/Documents/DataScience/SDS II/Project/rBOZZA.txt"
+set.seed(123)
+
+provaSIM <- jags(data = sim_jags,               
+                model.file = rmfileB,       
+                parameters.to.save = paramSIM,                  
+                n.chains = 3, n.iter = 10000, 
+                n.burnin = 1000, n.thin=5) 
+```
+
+```{r echo=FALSE}
+out <- provaSIM$BUGSoutput$sims.matrix
+outM <- data.frame(colMeans(out))
+
+#outM[52,]
+#sigma
+
+row_names <- c("Real", "Estimated")
+header <- c("Sigma", "Mu")
+
+estimated_mu <- mean(outM[2:51,])
+original_mu <- mean(mu)
+
+rowOr <- c(sigma, original_mu)
+rowEs <- c(outM[52,], estimated_mu)
+t <- rbind(rowOr, rowEs)
+t_df <- data.frame(t)
+colnames(t_df) <- header 
+rownames(t_df) <- row_names 
+#t_df
+
+kable(t_df) %>%
+  kable_styling(bootstrap_options = "striped",position = "center", latex_options="scale_up")%>%
+ scroll_box(width = "900px", height = "110px")%>%
+  kable_styling(position = "center")
+```
+
+\
+\
+
+
+# Conclusions
+
+
+ <font size="3"> 
+The main objective of this project was to carry out a Bayesian analysis on some data. Starting from a basic model, two alternatives were created. These three models were compared using the DIC (Deviance Information Criterion) and showing an improvment from model to model.\
+Moreover, differences and improvments can also be seen with the use of other diagnostics. For example, it's easy to check that the MCSEs of model 3 are better than the ones of model 2, which are better than the ones of model 1. The intervals are getting generally smaller too.\
+We can also see that not all the parameters of model 2 had an effective sample size of 5400, like those of model 3, showing that the autocorrelation is not as low. On the other hand, we can see that all three models passed the convergence tests and the halfwidth test. \
+Finally, testing the model on data generated following the model itself, we were able to test the model's choerence highlighting its ability to retrieve reliable estimators. 
+
+</font> 
