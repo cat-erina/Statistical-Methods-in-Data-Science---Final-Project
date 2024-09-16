@@ -5,6 +5,8 @@ Goal: perform an in-depth fully Bayesian analysis (using MCMC simulation) of som
 
 Tools: R, JAGS
 
+HTML Project report [here](https://htmlpreview.github.io/?https://github.com/cat-erina/Statistical-Methods-in-Data-Science---Final-Project/blob/main/projectRats.html ) 
+
 Steps:
 1. illustration of the dataset
 2. explaination the overall features of the statistical model such as the role of the parameters and the inferential goals of the analysis
